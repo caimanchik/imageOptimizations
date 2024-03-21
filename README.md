@@ -34,3 +34,4 @@
 * [WinDbg commands](https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/commands)
 * [sos commands](http://www.windbg.xyz/windbg/article/10-SOS-Extension-Commands)
 * [sosex commands](https://knowledge-base.havit.eu/tag/windbg/)
+* [Презентация отладка](https://docs.google.com/presentation/d/1Hq5osHm565PwxnMr1TE8Iy99K_4OWws7VpS-Jel7nZ4/edit?usp=sharing)
