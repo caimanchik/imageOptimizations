@@ -27,6 +27,8 @@
 * [Про new()](https://devblogs.microsoft.com/premier-developer/dissecting-the-new-constraint-in-c-a-perfect-example-of-a-leaky-abstraction/)
 * [Про IEquatable](https://devblogs.microsoft.com/premier-developer/performance-implications-of-default-struct-equality-in-c/)
 * [Про Inlining методов](https://web.archive.org/web/20200108171755/http://blogs.microsoft.co.il/sasha/2012/01/20/aggressive-inlining-in-the-clr-45-jit/)
+* [Habr cтатья про for vs foreach](https://habr.com/ru/companies/skbkontur/articles/743454/)
+* [Презентация оптимизация](https://docs.google.com/presentation/d/1HdFkuCcFGV3G8uXo5hjjTAsmDNv6_0o6WbdxZklUJkk/edit?usp=sharing)
 
 
 * [WinDbg commands](https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/commands)
