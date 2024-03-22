@@ -23,6 +23,10 @@
 3. Внести свой результат в таблицу в день дедлайна, ссылку на которую вам дадут позже
 4. Очно или онлайн за 10-15 минут рассказать какие моменты удалось найти и как оптимизировать
 
+Дополнительное задание:
+В проекте [debugging/managed/Volatile](https://github.com/Golran/shpora-debug-optimizations-2024/tree/master/debugging/managed/Volatile)
+запустить программу в Debug и Release режиме. В чём разница между запусками? Используйте windbg, посмотрите ассемблерный код программы и объясните, что происходит.
+
 ## Полезные ссылки
 * [Про new()](https://devblogs.microsoft.com/premier-developer/dissecting-the-new-constraint-in-c-a-perfect-example-of-a-leaky-abstraction/)
 * [Про IEquatable](https://devblogs.microsoft.com/premier-developer/performance-implications-of-default-struct-equality-in-c/)
