@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -6,12 +7,16 @@ using JPEG.Utilities;
 
 namespace JPEG;
 
-class HuffmanNode
+public class HuffmanNode : IComparable<HuffmanNode>
 {
 	public byte? LeafLabel { get; set; }
 	public int Frequency { get; set; }
 	public HuffmanNode Left { get; set; }
 	public HuffmanNode Right { get; set; }
+	public int CompareTo(HuffmanNode other)
+	{
+		return Frequency.CompareTo(other.Frequency);
+	}
 }
 
 public class BitsWithLength
@@ -158,23 +163,63 @@ class HuffmanCodec
 
 	private static HuffmanNode BuildHuffmanTree(int[] frequences)
 	{
-		var nodes = GetNodes(frequences);
+		// var nodesGot = GetNodes(frequences);
+		// var orderedNodes = nodesGot
+		// 	.OrderBy(node => node.Frequency)
+		// 	.ToArray();
+		// IEnumerable<HuffmanNode> nodes = nodesGot;
+		//
+		// var i = 0;
+		//
+		// while (nodes.Count() > 1)
+		// {
+		// 	if (i >= orderedNodes.Length)
+		// 		Console.WriteLine(false);
+		// 	var firstMin = orderedNodes[i++];
+		// 	var secondMin = i < orderedNodes.Length ? orderedNodes[i++] : null;
+		// 	nodes = nodes.Without(firstMin, secondMin);
+		// 	
+		// 	nodes = nodes.Concat(new HuffmanNode
+		// 			{ Frequency = firstMin.Frequency + secondMin?.Frequency ?? 0, Left = secondMin, Right = firstMin }
+		// 		.ToEnumerable());
+		// }
+		//
+		// return nodes.First();
 
-		while (nodes.Count() > 1)
+		var queue = GetPriorityQueue(frequences);
+
+		while (queue.Count > 1)
 		{
-			var firstMin = nodes.MinOrDefault(node => node.Frequency);
-			nodes = nodes.Without(firstMin);
-			var secondMin = nodes.MinOrDefault(node => node.Frequency);
-			nodes = nodes.Without(secondMin);
-			nodes = nodes.Concat(new HuffmanNode
-					{ Frequency = firstMin.Frequency + secondMin.Frequency, Left = secondMin, Right = firstMin }
-				.ToEnumerable());
+			var left = queue.Dequeue();
+			var right = queue.Dequeue();
+
+			var parent = new HuffmanNode
+			{
+				Frequency = left.Frequency + right.Frequency,
+				Left = left,
+				Right = right,
+			};
+			
+			queue.Enqueue(parent, parent.Frequency);
 		}
 
-		return nodes.First();
+		return queue.Dequeue();
+	}
+	
+	private static PriorityQueue<HuffmanNode, int> GetPriorityQueue(int[] frequences)
+	{
+		var queue = new PriorityQueue<HuffmanNode, int>();
+
+		for (var i = 0; i < frequences.Length; i++)
+		{
+			var node = new HuffmanNode { Frequency = frequences[i], LeafLabel = (byte)i };
+			queue.Enqueue(node, node.Frequency);
+		}
+
+		return queue;
 	}
 
-	private static IEnumerable<HuffmanNode> GetNodes(int[] frequences)
+	private static HuffmanNode[] GetNodes(int[] frequences)
 	{
 		return Enumerable.Range(0, byte.MaxValue + 1)
 			.Select(num => new HuffmanNode { Frequency = frequences[num], LeafLabel = (byte)num })

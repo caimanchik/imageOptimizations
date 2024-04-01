@@ -18,7 +18,7 @@ public class JpegProcessorBenchmark
 	{
 		jpegProcessor = JpegProcessor.Init;
 	}
-
+	
 	[Benchmark]
 	public void Compress()
 	{
