@@ -104,7 +104,12 @@ public class JpegProcessor : IJpegProcessor
 	{
 		var worker = new MatrixWorker(image.Height, image.Width);
 
-		var allQuantizedBytes = HuffmanCodec.Decode(image.CompressedBytes, image.DecodeTable, image.BitsCount);
+		var allQuantizedBytes = HuffmanCodec.Decode(
+			image.CompressedBytes, 
+			image.DecodeTableDecode, 
+			image.BitsCount,
+			image.Width,
+			image.Height);
 
 		Parallel.For(0, image.Height / 8, y =>
 		{

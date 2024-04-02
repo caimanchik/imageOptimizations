@@ -13,6 +13,7 @@ public class CompressedImage
 	public int Quality { get; set; }
 		
 	public Dictionary<BitsWithLength, byte> DecodeTable { get; set; }
+	public Dictionary<(int, int), byte> DecodeTableDecode { get; set; }
 
 	public long BitsCount { get; set; }
 	public byte[] CompressedBytes { get; set; }
@@ -77,7 +78,7 @@ public class CompressedImage
 
 			sr.Read(buffer, 0, 4);
 			var decodeTableSize = BitConverter.ToInt32(buffer, 0);
-			result.DecodeTable = new Dictionary<BitsWithLength, byte>(decodeTableSize, new BitsWithLength.Comparer());
+			result.DecodeTableDecode = new Dictionary<(int, int), byte>(decodeTableSize);
 
 			for(int i = 0; i < decodeTableSize; i++)
 			{
@@ -88,7 +89,7 @@ public class CompressedImage
 				var bitsCount = BitConverter.ToInt32(buffer, 0);
 
 				var mappedByte = (byte)sr.ReadByte();
-				result.DecodeTable[new BitsWithLength {Bits = bits, BitsCount = bitsCount}] = mappedByte;
+				result.DecodeTableDecode[(bits, bitsCount)] = mappedByte;
 			}
 
 			sr.Read(buffer, 0, 8);

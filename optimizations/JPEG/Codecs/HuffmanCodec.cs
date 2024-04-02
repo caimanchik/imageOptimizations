@@ -1,13 +1,11 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace JPEG.Codecs;
 
 class HuffmanCodec
 {
-	public static byte[] Encode(IEnumerable<byte> data, out Dictionary<BitsWithLength, byte> decodeTable,
+	public static byte[] Encode(byte[] data, out Dictionary<BitsWithLength, byte> decodeTable,
 		out long bitsCount)
 	{
 		var frequences = CalcFrequences(data);
@@ -26,26 +24,28 @@ class HuffmanCodec
 		return bitsBuffer.ToArray(out bitsCount);
 	}
 
-	public static byte[] Decode(byte[] encodedData, Dictionary<BitsWithLength, byte> decodeTable, long bitsCount)
+	public static byte[] Decode(byte[] encodedData, Dictionary<(int, int), byte> decodeTable, long bitsCount, int width, int height)
 	{
-		var result = new List<byte>();
+		var result = new byte[width * height * 3];
 
 		byte decodedByte;
-		var sample = new BitsWithLength { Bits = 0, BitsCount = 0 };
+		var bits = 0;
+		var bitsC = 0;
+		var i = 0;
 		for (var byteNum = 0; byteNum < encodedData.Length; byteNum++)
 		{
 			var b = encodedData[byteNum];
 			for (var bitNum = 0; bitNum < 8 && byteNum * 8 + bitNum < bitsCount; bitNum++)
 			{
-				sample.Bits = (sample.Bits << 1) + ((b & (1 << (8 - bitNum - 1))) != 0 ? 1 : 0);
-				sample.BitsCount++;
+				bits = (bits << 1) + ((b & (1 << (8 - bitNum - 1))) != 0 ? 1 : 0);
+				bitsC++;
 
-				if (decodeTable.TryGetValue(sample, out decodedByte))
+				if (decodeTable.TryGetValue((bits, bitsC), out decodedByte))
 				{
-					result.Add(decodedByte);
+					result[i++] = decodedByte;
 
-					sample.BitsCount = 0;
-					sample.Bits = 0;
+					bitsC = 0;
+					bits = 0;
 				}
 			}
 		}
@@ -119,18 +119,10 @@ class HuffmanCodec
 		return queue;
 	}
 
-	private static HuffmanNode[] GetNodes(int[] frequences)
-	{
-		return Enumerable.Range(0, byte.MaxValue + 1)
-			.Select(num => new HuffmanNode { Frequency = frequences[num], LeafLabel = (byte)num })
-			.Where(node => node.Frequency > 0)
-			.ToArray();
-	}
-
-	private static int[] CalcFrequences(IEnumerable<byte> data)
+	private static int[] CalcFrequences(byte[] data)
 	{
 		var result = new int[byte.MaxValue + 1];
-		Parallel.ForEach(data, b => Interlocked.Increment(ref result[b]));
+		foreach (var b in data) result[b]++;
 		return result;
 	}
 }

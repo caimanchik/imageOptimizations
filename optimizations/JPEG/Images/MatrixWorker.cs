@@ -55,9 +55,9 @@ public class MatrixWorker
 
             for (var w = i; w < endI; w++)
             {
-                double b = *pos++;
-                double g = *pos++;
-                double r = *pos++;
+                var b = *pos++;
+                var g = *pos++;
+                var r = *pos++;
 
                 y[readCountY, readCountX] = 16.0 + (65.738 * r + 129.057 * g + 24.064 * b) / 256.0;
                 cb[readCountY, readCountX] = 128.0 + (-37.945 * r - 74.494 * g + 112.439 * b) / 256.0;
