@@ -8,25 +8,25 @@ namespace JPEG;
 public class DCT
 {
 	private static readonly double[,,] BasisHash =
-		new double[JpegProcessor.DCTSize, JpegProcessor.DCTSize, JpegProcessor.DCTSize];
+		new double[JpegProcessor.DctSize, JpegProcessor.DctSize, JpegProcessor.DctSize];
 
-	private static readonly double[,] AlphaHash = new double[JpegProcessor.DCTSize, JpegProcessor.DCTSize];
+	private static readonly double[,] AlphaHash = new double[JpegProcessor.DctSize, JpegProcessor.DctSize];
 
-	private static readonly double[,] BetaHash = new double[JpegProcessor.DCTSize, JpegProcessor.DCTSize];
+	private static readonly double[,] BetaHash = new double[JpegProcessor.DctSize, JpegProcessor.DctSize];
 
 	static DCT()
 	{
-		for (var i = 0; i < JpegProcessor.DCTSize; i++)
-		for (var j = 0; j < JpegProcessor.DCTSize; j++)
-		for (var k = 1; k < JpegProcessor.DCTSize + 1; k++)
+		for (var i = 0; i < JpegProcessor.DctSize; i++)
+		for (var j = 0; j < JpegProcessor.DctSize; j++)
+		for (var k = 1; k < JpegProcessor.DctSize + 1; k++)
 			BasisHash[i,j,k-1] = Math.Cos(((2d * i + 1d) * j * Math.PI) / (2 * k));
 		
-		for (var i = 0; i < JpegProcessor.DCTSize; i++)
-		for (var j = 0; j < JpegProcessor.DCTSize; j++)
+		for (var i = 0; i < JpegProcessor.DctSize; i++)
+		for (var j = 0; j < JpegProcessor.DctSize; j++)
 			AlphaHash[i, j] = Alpha(i) * Alpha(j);
 		
-		for (var i = 1; i < JpegProcessor.DCTSize + 1; i++)
-		for (var j = 1; j < JpegProcessor.DCTSize + 1; j++)
+		for (var i = 1; i < JpegProcessor.DctSize + 1; i++)
+		for (var j = 1; j < JpegProcessor.DctSize + 1; j++)
 			BetaHash[i - 1, j - 1] = Beta(i, j);
 	}
 	
@@ -50,19 +50,17 @@ public class DCT
 		var height = coeffs.GetLength(0);
 		var width = coeffs.GetLength(1);
 
-		Parallel.For(0, width, x =>
+		for (var x = 0; x < width; x++)
+		for (var y = 0; y < height; y++)
 		{
-			for (var y = 0; y < height; y++)
-			{
-				var sum = 0.0;
+			var sum = 0.0;
 				
-				for (var u = 0; u < width; u++)
-				for (var v = 0; v < height; v++)
-					sum += BasisHash[x, u, width - 1] * BasisHash[y, v, height - 1] * coeffs[u, v] * AlphaHash[u, v];
+			for (var u = 0; u < width; u++)
+			for (var v = 0; v < height; v++)
+				sum += BasisHash[x, u, width - 1] * BasisHash[y, v, height - 1] * coeffs[u, v] * AlphaHash[u, v];
 
-				output[x, y] = sum * BetaHash[height - 1, width - 1];
-			}
-		});
+			output[x, y] = sum * BetaHash[height - 1, width - 1];
+		}
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]

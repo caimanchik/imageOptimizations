@@ -14,13 +14,13 @@ internal class Program
 			var processor = JpegProcessor.Init;
 			var sw = Stopwatch.StartNew();
 			var imagePath = @"sample.bmp";
+			// var imagePath = @"earth.bmp";
 			// var imageName = "Big_Black_River_Railroad_Bridge.bmp";
 			var compressedImagePath = imagePath + ".compressed." + JpegProcessor.CompressionQuality;
 			var uncompressedImagePath = imagePath + ".uncompressed." + JpegProcessor.CompressionQuality + ".bmp";
 
 			sw.Restart();
 			processor.Compress(imagePath, compressedImagePath);
-			// processor.Compress(imagePath, compressedImagePath);
 			sw.Stop();
 			Console.WriteLine("Compression: " + sw.ElapsedMilliseconds);
 

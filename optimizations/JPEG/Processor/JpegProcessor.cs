@@ -3,10 +3,9 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using JPEG.Images;
-using PixelFormat = JPEG.Images.PixelFormat;
+using static System.Drawing.Image;
 
 namespace JPEG.Processor;
 
@@ -14,22 +13,32 @@ public class JpegProcessor : IJpegProcessor
 {
 	public static readonly JpegProcessor Init = new();
 	public const int CompressionQuality = 70;
-	public const int DCTSize = 8;
+	public const int DctSize = 8;
+
+	private static int[,] _quantizationMatrix8X8Q70;
+
+	private JpegProcessor()
+	{
+		_quantizationMatrix8X8Q70 = GetQuantizationMatrix(70);
+	}
 	
 	public async void Compress(string imagePath, string compressedImagePath)
 	{
-		using var fileStream = File.OpenRead(imagePath);
-		using var bmp = (Bitmap)Image.FromStream(fileStream, false, false);
+		await using var fileStream = File.OpenRead(imagePath);
+#pragma warning disable CA1416
+		using var bmp = (Bitmap)FromStream(fileStream, false, false);
+#pragma warning restore CA1416
 		var compressionResult = await Compress(bmp, CompressionQuality);
 		compressionResult.Save(compressedImagePath);
 	}
-
-	public void Uncompress(string compressedImagePath, string uncompressedImagePath)
+	
+	public async void Uncompress(string compressedImagePath, string uncompressedImagePath)
 	{
 		var compressedImage = CompressedImage.Load(compressedImagePath);
-		var uncompressedImage = Uncompress(compressedImage);
-		var resultBmp = uncompressedImage.ToBitmap();
-		resultBmp.Save(uncompressedImagePath, ImageFormat.Bmp);
+		var result = await Uncompress(compressedImage);
+#pragma warning disable CA1416
+		result.Save(uncompressedImagePath, ImageFormat.Bmp);
+#pragma warning restore CA1416
 	}
 	
 	private static async Task<CompressedImage> Compress(Bitmap bitmap, int quality = 50)
@@ -37,36 +46,34 @@ public class JpegProcessor : IJpegProcessor
 		var worker = new MatrixWorker(bitmap);
 		var allQuantizedBytes = new List<byte>(worker.Width * worker.Height);
 		
-		var Y = new double[DCTSize, DCTSize];
-		var YBuffer = new double[DCTSize, DCTSize];
-		var Cb = new double[DCTSize, DCTSize];
-		var CbBuffer = new double[DCTSize, DCTSize];
-		var Cr = new double[DCTSize, DCTSize];
-		var CrBuffer = new double[DCTSize, DCTSize];
+		var yBuffer1 = new double[DctSize, DctSize];
+		var yBuffer2 = new double[DctSize, DctSize];
+		var cbBuffer1 = new double[DctSize, DctSize];
+		var cbBuffer2 = new double[DctSize, DctSize];
+		var crBuffer1 = new double[DctSize, DctSize];
+		var crBuffer2 = new double[DctSize, DctSize];
 		
-		for (var y = 0; y < worker.Height; y += DCTSize)
+		for (var y = 0; y < worker.Height; y += DctSize)
 		{
-			for (var x = 0; x < worker.Width; x += DCTSize)
+			for (var x = 0; x < worker.Width; x += DctSize)
 			{
-				worker.Read(y, x, Y, Cb, Cr, out var readCountX, out var readCountY);
+				worker.Read(y, x, yBuffer1, cbBuffer1, crBuffer1, out var readCountX, out var readCountY);
 				
-				var yTask = Compress(quality, Y, YBuffer, readCountY, readCountX);
-				var CbTask = Compress(quality, Cb, CbBuffer, readCountY, readCountX);
-				var CrTask = Compress(quality, Cr, CrBuffer, readCountY, readCountX);
+				var yTask = Compress(quality, yBuffer1, yBuffer2, readCountY, readCountX);
+				var cbTask = Compress(quality, cbBuffer1, cbBuffer2, readCountY, readCountX);
+				var crTask = Compress(quality, crBuffer1, crBuffer2, readCountY, readCountX);
 
 				allQuantizedBytes.AddRange(await yTask);
-				allQuantizedBytes.AddRange(await CbTask);
-				allQuantizedBytes.AddRange(await CrTask);
+				allQuantizedBytes.AddRange(await cbTask);
+				allQuantizedBytes.AddRange(await crTask);
 				
-				worker.Read(y, x, Y, Cb, Cr, out readCountX, out readCountY);
+				worker.Read(y, x, yBuffer1, cbBuffer1, crBuffer1, out readCountX, out readCountY);
 			}
 		}
 		
 		worker.UnlockBits();
 
-		long bitsCount;
-		Dictionary<BitsWithLength, byte> decodeTable;
-		var compressedBytes = HuffmanCodec.Encode(allQuantizedBytes, out decodeTable, out bitsCount);
+		var compressedBytes = HuffmanCodec.Encode(allQuantizedBytes, out var decodeTable, out var bitsCount);
 
 		return new CompressedImage
 		{
@@ -74,13 +81,65 @@ public class JpegProcessor : IJpegProcessor
 			Height = worker.Height, Width = worker.Width
 		};
 	}
+	
+	private static async Task<Bitmap> Uncompress(CompressedImage image)
+	{
+		var worker = new MatrixWorker(image.Height, image.Width);
+		
+		var yBuffer1 = new byte[DctSize * DctSize];
+		var yBuffer2 = new double[DctSize, DctSize];
+		var yBuffer3 = new double[DctSize, DctSize];
+		var cbBuffer1 = new byte[DctSize * DctSize];
+		var cbBuffer2 = new double[DctSize, DctSize];
+		var cbBuffer3 = new double[DctSize, DctSize];
+		var crBuffer1 = new byte[DctSize * DctSize];
+		var crBuffer2 = new double[DctSize, DctSize];
+		var crBuffer3 = new double[DctSize, DctSize];
 
-	private static async Task<IEnumerable<byte>> Compress(int quality, double[,] buffer, double[,] buffer2, int height, int width)
+		using var allQuantizedBytes =
+			new MemoryStream(HuffmanCodec.Decode(image.CompressedBytes, image.DecodeTable, image.BitsCount));
+		
+		for (var y = 0; y < image.Height; y += DctSize)
+		{
+			for (var x = 0; x < image.Width; x += DctSize)
+			{
+				allQuantizedBytes.ReadAsync(yBuffer1, 0, yBuffer1.Length).Wait();
+				allQuantizedBytes.ReadAsync(cbBuffer1, 0, cbBuffer1.Length).Wait();
+				allQuantizedBytes.ReadAsync(crBuffer1, 0, crBuffer1.Length).Wait();
+
+				var yTask = Uncompress(yBuffer1, yBuffer2, yBuffer3, image.Quality);
+				var cbTask = Uncompress(cbBuffer1, cbBuffer2, cbBuffer3, image.Quality);
+				var crTask = Uncompress(crBuffer1, crBuffer2, crBuffer3, image.Quality);
+
+				await yTask;
+				await cbTask;
+				await crTask;
+				
+				worker.Write(yBuffer3, cbBuffer3, crBuffer3, y, x, 8, 8);
+			}
+		}
+		
+		worker.UnlockBits();
+
+		return worker.Bitmap;
+	}
+
+	private static Task Uncompress(byte[] buffer1, double[,] buffer2, double[,] buffer3, int quality)
+	{
+		var zagUnScan = ZigZagUnScan(buffer1);
+		DeQuantize(zagUnScan, quality, buffer2);
+		DCT.IDCT2D(buffer2, buffer3);
+		ShiftMatrixValues(buffer3, 128);
+		
+		return Task.CompletedTask;
+	}
+	
+	private static Task<IEnumerable<byte>> Compress(int quality, double[,] buffer, double[,] buffer2, int height, int width)
 	{
 		ShiftMatrixValues(buffer, -128, height, width);
 		DCT.DCT2D(buffer, buffer2, height, width);
 		Quantize(buffer2, quality, height, width);
-		return ZigZagScan(buffer2);
+		return Task.FromResult(ZigZagScan(buffer2));
 	}
 	
 	private static void ShiftMatrixValues(double[,] subMatrix, int shiftValue, int height, int width)
@@ -92,43 +151,11 @@ public class JpegProcessor : IJpegProcessor
 	
 	private static void Quantize(double[,] channelFreqs, int quality, int height, int width)
 	{
-		var quantizationMatrix = GetQuantizationMatrix(quality);
+		var quantMatrix = quality == 70 ? _quantizationMatrix8X8Q70 : GetQuantizationMatrix(quality);
+		
 		for (var y = 0; y < height; y++)
 		for (var x = 0; x < width; x++)
-			channelFreqs[y, x] /= quantizationMatrix[y, x];
-	}
-
-	private static Matrix Uncompress(CompressedImage image)
-	{
-		var result = new Matrix(image.Height, image.Width);
-		var buffer = new byte[DCTSize * DCTSize];
-		var buffer1 = new double[DCTSize, DCTSize];
-		var _y = new double[DCTSize, DCTSize];
-		var cb = new double[DCTSize, DCTSize];
-		var cr = new double[DCTSize, DCTSize];
-		
-		using (var allQuantizedBytes =
-		       new MemoryStream(HuffmanCodec.Decode(image.CompressedBytes, image.DecodeTable, image.BitsCount)))
-		{
-			for (var y = 0; y < image.Height; y += DCTSize)
-			{
-				for (var x = 0; x < image.Width; x += DCTSize)
-				{
-					foreach (var channel in new[] { _y, cb, cr })
-					{
-						allQuantizedBytes.ReadAsync(buffer, 0, buffer.Length).Wait();
-						var zagUnScan = ZigZagUnScan(buffer);
-						DeQuantize(zagUnScan, image.Quality, buffer1);
-						DCT.IDCT2D(buffer1, channel);
-						ShiftMatrixValues(channel, 128);
-					}
-
-					SetPixels(result, _y, cb, cr, PixelFormat.YCbCr, y, x);
-				}
-			}
-		}
-
-		return result;
+			channelFreqs[y, x] /= quantMatrix[y, x];
 	}
 
 	private static void ShiftMatrixValues(double[,] subMatrix, int shiftValue)
@@ -139,17 +166,6 @@ public class JpegProcessor : IJpegProcessor
 		for (var y = 0; y < height; y++)
 		for (var x = 0; x < width; x++)
 			subMatrix[y, x] += shiftValue;
-	}
-
-	private static void SetPixels(Matrix matrix, double[,] a, double[,] b, double[,] c, PixelFormat format,
-		int yOffset, int xOffset)
-	{
-		var height = a.GetLength(0);
-		var width = a.GetLength(1);
-
-		for (var y = 0; y < height; y++)
-		for (var x = 0; x < width; x++)
-			matrix.Pixels[yOffset + y, xOffset + x] = new Pixel(a[y, x], b[y, x], c[y, x], format);
 	}
 
 	private static IEnumerable<byte> ZigZagScan(double[,] channelFreqs)
@@ -216,22 +232,18 @@ public class JpegProcessor : IJpegProcessor
 
 	private static void DeQuantize(byte[,] quantizedBytes, int quality, double[,] result)
 	{
-		var quantizationMatrix = GetQuantizationMatrix(quality);
-
-		for (int y = 0; y < quantizedBytes.GetLength(0); y++)
-		{
-			for (int x = 0; x < quantizedBytes.GetLength(1); x++)
-			{
+		var quantMatrix = quality == 70 ? _quantizationMatrix8X8Q70 : GetQuantizationMatrix(quality);
+		
+		for (var y = 0; y < quantizedBytes.GetLength(0); y++)
+		for (var x = 0; x < quantizedBytes.GetLength(1); x++)
 				result[y, x] =
 					((sbyte)quantizedBytes[y, x]) *
-					quantizationMatrix[y, x]; //NOTE cast to sbyte not to loose negative numbers
-			}
-		}
+					quantMatrix[y, x]; //NOTE cast to sbyte not to loose negative numbers
 	}
-
+	
 	private static int[,] GetQuantizationMatrix(int quality)
 	{
-		if (quality < 1 || quality > 99)
+		if (quality is < 1 or > 99)
 			throw new ArgumentException("quality must be in [1,99] interval");
 
 		var multiplier = quality < 50 ? 5000 / quality : 200 - 2 * quality;
@@ -248,13 +260,9 @@ public class JpegProcessor : IJpegProcessor
 			{ 72, 92, 95, 98, 112, 100, 103, 99 }
 		};
 
-		for (int y = 0; y < result.GetLength(0); y++)
-		{
-			for (int x = 0; x < result.GetLength(1); x++)
-			{
-				result[y, x] = (multiplier * result[y, x] + 50) / 100;
-			}
-		}
+		for (var y = 0; y < result.GetLength(0); y++)
+		for (var x = 0; x < result.GetLength(1); x++)
+			result[y, x] = (multiplier * result[y, x] + 50) / 100;
 
 		return result;
 	}

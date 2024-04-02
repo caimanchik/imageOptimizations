@@ -163,29 +163,6 @@ class HuffmanCodec
 
 	private static HuffmanNode BuildHuffmanTree(int[] frequences)
 	{
-		// var nodesGot = GetNodes(frequences);
-		// var orderedNodes = nodesGot
-		// 	.OrderBy(node => node.Frequency)
-		// 	.ToArray();
-		// IEnumerable<HuffmanNode> nodes = nodesGot;
-		//
-		// var i = 0;
-		//
-		// while (nodes.Count() > 1)
-		// {
-		// 	if (i >= orderedNodes.Length)
-		// 		Console.WriteLine(false);
-		// 	var firstMin = orderedNodes[i++];
-		// 	var secondMin = i < orderedNodes.Length ? orderedNodes[i++] : null;
-		// 	nodes = nodes.Without(firstMin, secondMin);
-		// 	
-		// 	nodes = nodes.Concat(new HuffmanNode
-		// 			{ Frequency = firstMin.Frequency + secondMin?.Frequency ?? 0, Left = secondMin, Right = firstMin }
-		// 		.ToEnumerable());
-		// }
-		//
-		// return nodes.First();
-
 		var queue = GetPriorityQueue(frequences);
 
 		while (queue.Count > 1)
