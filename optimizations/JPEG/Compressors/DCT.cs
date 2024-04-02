@@ -13,6 +13,8 @@ public class DCT
 
 	private static readonly double[,] BetaHash = new double[JpegProcessor.DctSize, JpegProcessor.DctSize];
 
+	private static readonly double Beta8x8;
+
 	static DCT()
 	{
 		for (var i = 0; i < JpegProcessor.DctSize; i++)
@@ -27,11 +29,13 @@ public class DCT
 		for (var i = 1; i < JpegProcessor.DctSize + 1; i++)
 		for (var j = 1; j < JpegProcessor.DctSize + 1; j++)
 			BetaHash[i - 1, j - 1] = Beta(i, j);
+
+		Beta8x8 = Beta(8, 8);
 	}
 	
 	public static void DCT2D(double[,] input, double[,] coeffs, int height, int width)
 	{
-		for (var u = 0; u < height; u++)
+		for (var u = 0; u < width; u++)
 		for (var v = 0; v < height; v++)
 		{
 			var sum = 0.0;
@@ -40,7 +44,7 @@ public class DCT
 			for (var y = 0; y < height; y++)
 				sum += BasisHash[x, u, width - 1] * BasisHash[y, v, height - 1] * input[x, y];
 		
-			coeffs[u, v] = sum * BetaHash[height - 1, width - 1] * AlphaHash[u, v];
+			coeffs[u, v] = sum * Beta8x8 * AlphaHash[u, v];
 		}
 	}
 
@@ -58,7 +62,7 @@ public class DCT
 			for (var v = 0; v < height; v++)
 				sum += BasisHash[x, u, width - 1] * BasisHash[y, v, height - 1] * coeffs[u, v] * AlphaHash[u, v];
 
-			output[x, y] = sum * BetaHash[height - 1, width - 1];
+			output[x, y] = sum * Beta8x8;
 		}
 	}
 
