@@ -4,6 +4,8 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Threading.Tasks;
+using JPEG.Codecs;
+using JPEG.Compressors;
 using JPEG.Images;
 using static System.Drawing.Image;
 
@@ -82,6 +84,14 @@ public class JpegProcessor : IJpegProcessor
 		};
 	}
 	
+	private static Task<IEnumerable<byte>> Compress(int quality, double[,] buffer, double[,] buffer2, int height, int width)
+	{
+		ShiftMatrixValues(buffer, -128, height, width);
+		DCT.DCT2D(buffer, buffer2, height, width);
+		Quantize(buffer2, quality, height, width);
+		return Task.FromResult(ZigZagScan(buffer2));
+	}
+	
 	private static async Task<Bitmap> Uncompress(CompressedImage image)
 	{
 		var worker = new MatrixWorker(image.Height, image.Width);
@@ -134,14 +144,6 @@ public class JpegProcessor : IJpegProcessor
 		return Task.CompletedTask;
 	}
 	
-	private static Task<IEnumerable<byte>> Compress(int quality, double[,] buffer, double[,] buffer2, int height, int width)
-	{
-		ShiftMatrixValues(buffer, -128, height, width);
-		DCT.DCT2D(buffer, buffer2, height, width);
-		Quantize(buffer2, quality, height, width);
-		return Task.FromResult(ZigZagScan(buffer2));
-	}
-	
 	private static void ShiftMatrixValues(double[,] subMatrix, int shiftValue, int height, int width)
 	{
 		for (var y = 0; y < height; y++)
@@ -156,6 +158,43 @@ public class JpegProcessor : IJpegProcessor
 		for (var y = 0; y < height; y++)
 		for (var x = 0; x < width; x++)
 			channelFreqs[y, x] /= quantMatrix[y, x];
+	}
+	
+	private static void DeQuantize(byte[,] quantizedBytes, int quality, double[,] result)
+	{
+		var quantMatrix = quality == 70 ? _quantizationMatrix8X8Q70 : GetQuantizationMatrix(quality);
+		
+		for (var y = 0; y < quantizedBytes.GetLength(0); y++)
+		for (var x = 0; x < quantizedBytes.GetLength(1); x++)
+			result[y, x] =
+				((sbyte)quantizedBytes[y, x]) *
+				quantMatrix[y, x]; //NOTE cast to sbyte not to loose negative numbers
+	}
+	
+	private static int[,] GetQuantizationMatrix(int quality)
+	{
+		if (quality is < 1 or > 99)
+			throw new ArgumentException("quality must be in [1,99] interval");
+
+		var multiplier = quality < 50 ? 5000 / quality : 200 - 2 * quality;
+
+		var result = new[,]
+		{
+			{ 16, 11, 10, 16, 24, 40, 51, 61 },
+			{ 12, 12, 14, 19, 26, 58, 60, 55 },
+			{ 14, 13, 16, 24, 40, 57, 69, 56 },
+			{ 14, 17, 22, 29, 51, 87, 80, 62 },
+			{ 18, 22, 37, 56, 68, 109, 103, 77 },
+			{ 24, 35, 55, 64, 81, 104, 113, 92 },
+			{ 49, 64, 78, 87, 103, 121, 120, 101 },
+			{ 72, 92, 95, 98, 112, 100, 103, 99 }
+		};
+
+		for (var y = 0; y < result.GetLength(0); y++)
+		for (var x = 0; x < result.GetLength(1); x++)
+			result[y, x] = (multiplier * result[y, x] + 50) / 100;
+
+		return result;
 	}
 
 	private static void ShiftMatrixValues(double[,] subMatrix, int shiftValue)
@@ -228,42 +267,5 @@ public class JpegProcessor : IJpegProcessor
 				quantizedBytes[58], quantizedBytes[62], quantizedBytes[63]
 			}
 		};
-	}
-
-	private static void DeQuantize(byte[,] quantizedBytes, int quality, double[,] result)
-	{
-		var quantMatrix = quality == 70 ? _quantizationMatrix8X8Q70 : GetQuantizationMatrix(quality);
-		
-		for (var y = 0; y < quantizedBytes.GetLength(0); y++)
-		for (var x = 0; x < quantizedBytes.GetLength(1); x++)
-				result[y, x] =
-					((sbyte)quantizedBytes[y, x]) *
-					quantMatrix[y, x]; //NOTE cast to sbyte not to loose negative numbers
-	}
-	
-	private static int[,] GetQuantizationMatrix(int quality)
-	{
-		if (quality is < 1 or > 99)
-			throw new ArgumentException("quality must be in [1,99] interval");
-
-		var multiplier = quality < 50 ? 5000 / quality : 200 - 2 * quality;
-
-		var result = new[,]
-		{
-			{ 16, 11, 10, 16, 24, 40, 51, 61 },
-			{ 12, 12, 14, 19, 26, 58, 60, 55 },
-			{ 14, 13, 16, 24, 40, 57, 69, 56 },
-			{ 14, 17, 22, 29, 51, 87, 80, 62 },
-			{ 18, 22, 37, 56, 68, 109, 103, 77 },
-			{ 24, 35, 55, 64, 81, 104, 113, 92 },
-			{ 49, 64, 78, 87, 103, 121, 120, 101 },
-			{ 72, 92, 95, 98, 112, 100, 103, 99 }
-		};
-
-		for (var y = 0; y < result.GetLength(0); y++)
-		for (var x = 0; x < result.GetLength(1); x++)
-			result[y, x] = (multiplier * result[y, x] + 50) / 100;
-
-		return result;
 	}
 }

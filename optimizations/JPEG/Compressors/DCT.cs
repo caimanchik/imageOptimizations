@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using JPEG.Processor;
 
-namespace JPEG;
+namespace JPEG.Compressors;
 
 public class DCT
 {

@@ -25,9 +25,7 @@ public class MatrixWorker
 
         Data = bitmap.LockBits(new Rectangle(new Point(), new Size(bitmap.Width, bitmap.Height)),
             ImageLockMode.ReadOnly,
-            System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-
-
+            PixelFormat.Format24bppRgb);
     }
 
     public MatrixWorker(int height, int width)

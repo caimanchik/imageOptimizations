@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using JPEG.Processor;
+using JPEG.Utilities;
 
 namespace JPEG;
 

@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using JPEG.Codecs;
 
-namespace JPEG;
+namespace JPEG.Images;
 
 public class CompressedImage
 {

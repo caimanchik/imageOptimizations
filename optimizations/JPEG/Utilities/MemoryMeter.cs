@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace JPEG;
+namespace JPEG.Utilities;
 
 internal static class PInvoke
 {
